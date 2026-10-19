@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cold Plate Geometry</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Public+Sans:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: engineering drawing sheet. 3D model on top, then three labelled sections (across the fins, along the flow, top view). */
+:root{
+  --bg:#f3f4f2; --sheet:#ffffff; --fg:#1d2329; --muted:#5b6670; --line:#d5dad9;
+  --copper:#b8642e; --copper-2:#d98a52; --water:#2f7fc1; --water-soft:#cfe3f4;
+  --gasket:#3b4249; --chip:#4f5d2f; --hbm:#7a8a3c; --tim:#9a8fb8; --hot:#c8352b;
+  --dim:#46525c;
+  --display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --body:"Public Sans","Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#14181c; --sheet:#1b2026; --fg:#e4e8eb; --muted:#97a3ad; --line:#323a42;
+  --copper:#d9813f; --copper-2:#eaa070; --water:#5aa7e6; --water-soft:#1f3a52;
+  --gasket:#8d969e; --chip:#93a85a; --hbm:#b1c46c; --tim:#a99fd0; --hot:#ec6a5e; --dim:#a9b4bd;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14181c; --sheet:#1b2026; --fg:#e4e8eb; --muted:#97a3ad; --line:#323a42;
+  --copper:#d9813f; --copper-2:#eaa070; --water:#5aa7e6; --water-soft:#1f3a52;
+  --gasket:#8d969e; --chip:#93a85a; --hbm:#b1c46c; --tim:#a99fd0; --hot:#ec6a5e; --dim:#a9b4bd;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 56px}
+main{max-width:1120px;margin:0 auto;display:grid;gap:36px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(28px,4.5vw,40px);font-weight:800;letter-spacing:-.01em}
+h2{font-size:clamp(21px,3vw,26px);font-weight:700}
+h3{font-size:17px;font-weight:700}
+p{margin:0;max-width:68ch}
+.eyebrow{font:600 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--copper)}
+header{display:grid;gap:10px}
+header p{color:var(--muted)}
+section{display:grid;gap:14px}
+.sheet{background:var(--sheet);border:1px solid var(--line);border-radius:6px}
+.mono{font-family:var(--mono);font-size:.92em}
+.key{background:var(--water-soft);color:var(--fg);padding:14px 16px;border-radius:6px;border-left:4px solid var(--water)}
+.key strong{color:var(--water)}
+
+/* 3D viewer */
+.viewer{display:grid;grid-template-columns:minmax(0,1fr) 250px}
+@media (max-width:820px){.viewer{grid-template-columns:minmax(0,1fr)}}
+.stage{position:relative;min-height:440px;height:62vh;max-height:640px;border-right:1px solid var(--line)}
+@media (max-width:820px){.stage{border-right:0;border-bottom:1px solid var(--line);height:56vh}}
+.stage canvas{display:block;width:100%;height:100%;border-radius:6px 0 0 6px}
+.status{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font:14px var(--mono);pointer-events:none}
+.hint{position:absolute;left:12px;bottom:10px;font:12px var(--mono);color:var(--muted);pointer-events:none}
+.axes{position:absolute;right:12px;bottom:10px;font:12px var(--mono);color:var(--muted);pointer-events:none}
+.panel{padding:16px;display:grid;gap:18px;align-content:start}
+.panel h3{font-size:13px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.presets{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+button{font:600 13px var(--body);color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:4px;padding:8px 8px;cursor:pointer;text-align:left}
+button:hover{border-color:var(--copper)}
+button[aria-pressed="true"]{background:var(--copper);border-color:var(--copper);color:#fff}
+button:focus-visible,input:focus-visible{outline:2px solid var(--water);outline-offset:2px}
+.parts{display:grid;gap:4px}
+.parts label{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+.sw{width:12px;height:12px;border-radius:2px;flex:none;border:1px solid rgba(0,0,0,.2)}
+.slider{display:grid;gap:4px;font-size:13px}
+.slider input{width:100%;accent-color:var(--copper)}
+.slider .row{display:flex;justify-content:space-between;color:var(--muted);font-family:var(--mono);font-size:12px}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;text-align:center;padding:6px}
+
+/* drawings */
+.drawing{padding:18px;display:grid;gap:12px}
+.svgwrap{overflow-x:auto}
+.svgwrap svg{display:block;width:100%;min-width:640px;height:auto}
+.cap{color:var(--muted);font-size:14px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:14px;align-content:start}
+.facts dt{font-family:var(--mono);color:var(--muted)}
+.facts dd{margin:0;font-variant-numeric:tabular-nums}
+svg text{font-family:var(--mono);font-size:12px;fill:var(--fg)}
+svg .lbl{font-family:var(--body);font-size:13px;font-weight:600}
+svg .muted{fill:var(--muted)}
+svg .dimtxt{fill:var(--dim);font-size:11.5px}
+svg .f-copper{fill:var(--copper)} svg .f-copper2{fill:var(--copper-2)}
+svg .f-water{fill:var(--water-soft)} svg .s-water{stroke:var(--water)}
+svg .f-gasket{fill:var(--gasket)} svg .f-chip{fill:var(--chip)} svg .f-hbm{fill:var(--hbm)} svg .f-tim{fill:var(--tim)}
+svg .f-sheet{fill:var(--sheet)} svg .f-man{fill:var(--line)}
+svg .dim{stroke:var(--dim);stroke-width:1;fill:none}
+svg .flow{stroke:var(--water);stroke-width:2.2;fill:none}
+svg .flowhead{fill:var(--water)}
+svg .edge{stroke:var(--fg);stroke-opacity:.35;stroke-width:.8}
+svg .outl{fill:none;stroke:var(--fg);stroke-opacity:.5;stroke-width:1}
+svg .hl{fill:none;stroke:var(--hot);stroke-width:2}
+@media (prefers-reduced-motion:no-preference){ svg .dash{stroke-dasharray:6 6;animation:run 1.2s linear infinite} @keyframes run{to{stroke-dashoffset:-12}} }
+footer{color:var(--muted);font-size:13px}
+.steps{display:grid;gap:6px}
+.caption{font-size:15px;line-height:1.5;min-height:9.5em;padding:12px 14px;border-radius:6px;background:var(--water-soft)}
+.caption b{display:block;font-family:var(--display);font-size:17px;margin-bottom:4px}
+.flowv .stage{height:66vh}
+</style>
+
+<main>
+  <header>
+    <div class="eyebrow">ASME K-16 / ITherm 2026–27 · Assembly.stp</div>
+    <h1>Cold Plate Geometry</h1>
+    <p>This is the test assembly from the competition files, shown as built. Rotate the 3D model, then use the drawings below. They show where the water goes and what "between the fins" means.</p>
+  </header>
+
+  <section aria-labelledby="hflow">
+    <h2 id="hflow">Follow the water</h2>
+    <p>Each dot is a drop of water. Step through the journey, or press <b>All steps</b> to watch the whole loop. The drops are <span style="color:var(--water);font-weight:600">blue</span> while cold. They turn <span style="color:var(--hot);font-weight:600">orange</span> as they pick up heat from the chips.</p>
+    <div class="sheet viewer flowv">
+      <div class="stage" id="fstage">
+        <div class="status" id="fstatus">Loading geometry…</div>
+        <div class="hint">drag to rotate · scroll to zoom</div>
+      </div>
+      <div class="panel">
+        <div style="display:grid;gap:8px">
+          <h3>Steps</h3>
+          <div class="steps" id="steps">
+            <button id="st-0" data-step="0" aria-pressed="true">All steps</button>
+            <button id="st-1" data-step="1">1 · Comes in</button>
+            <button id="st-2" data-step="2">2 · Splits in two</button>
+            <button id="st-3" data-step="3">3 · Drops into the fins</button>
+            <button id="st-4" data-step="4">4 · Through the fins</button>
+            <button id="st-5" data-step="5">5 · Streams meet</button>
+            <button id="st-6" data-step="6">6 · Leaves</button>
+          </div>
+        </div>
+        <div class="caption" id="caption" aria-live="polite"></div>
+        <div class="seg">
+          <button id="fprev">◀ Back</button>
+          <button id="fplay" aria-pressed="false">Pause</button>
+          <button id="fnext">Next ▶</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h3d">
+    <h2 id="h3d">The assembly in 3D</h2>
+    <div class="sheet viewer">
+      <div class="stage" id="stage">
+        <div class="status" id="status">Loading geometry…</div>
+        <div class="hint">drag to rotate · scroll to zoom · right-drag to pan</div>
+        <div class="axes">Y = up (stack direction)</div>
+      </div>
+      <div class="panel">
+        <div style="display:grid;gap:8px">
+          <h3>Views</h3>
+          <div class="presets" id="presets">
+            <button id="v-all" data-view="all" aria-pressed="true">Whole assembly</button>
+            <button id="v-cut" data-view="cut">Cut in half</button>
+            <button id="v-water" data-view="water">Water only</button>
+            <button id="v-fins" data-view="fins">Fin close-up</button>
+            <button id="v-stack" data-view="stack">Exploded stack</button>
+            <button id="v-chips" data-view="chips">Chips + fins</button>
+          </div>
+        </div>
+        <div style="display:grid;gap:8px">
+          <h3>Parts</h3>
+          <div class="parts" id="parts"></div>
+        </div>
+        <div class="slider">
+          <label for="explode">Explode</label>
+          <input id="explode" type="range" min="0" max="12" step="0.1" value="0">
+          <div class="row"><span>assembled</span><span>apart</span></div>
+        </div>
+        <div class="slider">
+          <label for="cut">Section cut</label>
+          <div class="seg" role="group" aria-label="Cut direction">
+            <button id="cut-off" data-cut="off" aria-pressed="true">Off</button>
+            <button id="cut-z" data-cut="z">Along flow</button>
+            <button id="cut-x" data-cut="x">Across fins</button>
+          </div>
+          <input id="cut" type="range" min="-45" max="45" step="0.05" value="0">
+          <div class="row"><span id="cutlbl">plane at 0 mm</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="hx">
+    <h2 id="hx">1 · Across the fins: what "between the fins" means</h2>
+    <div class="sheet drawing">
+      <div class="key"><strong>Between the fins = the water channels.</strong> The fin plate is a comb of 271 thin copper walls standing on the baseplate. Each fin is 0.1 mm thick, with a 0.1 mm gap to the next one. The water flows through those gaps, the narrow slots between neighbouring fins, so the baseline has 270 tiny channels side by side, each 0.1 mm wide and 2 mm tall. The gasket presses on the fin tips from above and closes the top of each channel.</div>
+      <div class="svgwrap">
+        <svg viewBox="0 0 900 400" role="img" aria-label="Cross-section across the fins showing copper fins, water channels between them, gasket on top, baseplate, TIM and chip below">
+          <!-- scale: 1 mm = 100 px vertically, fins drawn to scale (0.1 mm = 30 px horizontally for legibility) -->
+          <!-- gasket -->
+          <rect x="120" y="40" width="660" height="50" class="f-gasket"/>
+          <text x="450" y="70" text-anchor="middle" class="lbl" style="fill:var(--sheet)">silicone gasket (3 mm), presses on fin tips</text>
+          <!-- fin layer: fins + channels -->
+          <g id="finrow"></g>
+          <!-- baseplate -->
+          <rect x="120" y="290" width="660" height="40" class="f-copper"/>
+          <text x="450" y="315" text-anchor="middle" class="lbl" style="fill:#fff">copper baseplate · 2 mm (drawn shorter)</text>
+          <!-- TIM -->
+          <rect x="120" y="330" width="660" height="10" class="f-tim"/>
+          <!-- chip -->
+          <rect x="120" y="340" width="660" height="34" class="f-chip"/>
+          <text x="450" y="362" text-anchor="middle" class="lbl" style="fill:#fff">GPU / HBM silicon chip · 0.7 mm · heat comes from here</text>
+          <!-- heat arrows -->
+          <g class="hl" opacity=".9">
+            <path d="M200 372 v-24 m-5 6 l5 -6 l5 6"/><path d="M450 372 v-24 m-5 6 l5 -6 l5 6"/><path d="M700 372 v-24 m-5 6 l5 -6 l5 6"/>
+          </g>
+          <!-- side labels -->
+          <text x="790" y="190" class="lbl">fins + water</text>
+          <text x="790" y="208" class="muted">2 mm tall</text>
+          <text x="790" y="339" class="muted">TIM 0.2 mm</text>
+          <!-- dimension: one fin + one gap (computed in script) -->
+          <g id="findims"></g>
+          <!-- flow note -->
+          <circle cx="62" cy="190" r="16" class="outl"/><circle cx="62" cy="190" r="4" class="flowhead"/>
+          <text x="62" y="225" text-anchor="middle" class="muted">water flows</text>
+          <text x="62" y="240" text-anchor="middle" class="muted">out of the page</text>
+          <text x="62" y="255" text-anchor="middle" class="muted">(along the fins)</text>
+        </svg>
+      </div>
+      <p class="cap">A slice across the fins, looking along the flow. Only 22 of the 271 fins are drawn, and the horizontal scale is stretched so the 0.1 mm features are visible. The water (light blue) fills every gap. Heat goes up from the chip, through the TIM and baseplate, into the fin walls, and out into the water sliding past them.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="hz">
+    <h2 id="hz">2 · Along the flow: where the water goes</h2>
+    <div class="sheet drawing">
+      <div class="svgwrap">
+        <svg viewBox="0 0 960 400" role="img" aria-label="Side section along the fins showing inlet plenums at the outer edges, flow under the gaskets toward the center slot, and the outlet port in the middle">
+          <!-- y scale 22 px/mm (y 4.6..29.5), z scale 15 px/mm (z -30..30) centred at 480 -->
+          <!-- manifold body -->
+          <rect x="30" y="20" width="900" height="200" class="f-man"/>
+          <!-- inlet plenums (water) above fin layer at outer ends -->
+          <rect x="60" y="150" width="165" height="70" class="f-water"/>
+          <rect x="735" y="150" width="165" height="70" class="f-water"/>
+          <!-- outlet slot + port -->
+          <rect x="457.5" y="20" width="45" height="200" class="f-water"/>
+          <!-- gaskets -->
+          <rect x="502.5" y="220" width="203.7" height="66" class="f-gasket"/>
+          <rect x="253.8" y="220" width="203.7" height="66" class="f-gasket"/>
+          <!-- fin layer: water + fins (shown as water channel along length) -->
+          <rect x="88.8" y="286" width="782.4" height="44" class="f-water"/>
+          <rect x="88.8" y="286" width="782.4" height="44" fill="url(#finhatch)"/>
+          <!-- gap between gasket and fin? gasket sits on fins: y 9.5 -> fins top. inlet plenum opens to fin tops at |z|>15.08 -->
+          <rect x="225" y="220" width="28.8" height="66" class="f-water"/>
+          <rect x="706.2" y="220" width="28.8" height="66" class="f-water"/>
+          <!-- baseplate, TIM, chips -->
+          <rect x="30" y="330" width="900" height="26" class="f-copper"/>
+          <rect x="105" y="356" width="750" height="5" class="f-tim"/>
+          <rect x="104" y="361" width="150" height="14" class="f-hbm"/>
+          <rect x="255" y="361" width="450" height="14" class="f-chip"/>
+          <rect x="706" y="361" width="150" height="14" class="f-hbm"/>
+          <text x="179" y="395" text-anchor="middle" class="muted">HBM (H1–H4)</text>
+          <text x="480" y="395" text-anchor="middle" class="muted">GPU (30 mm)</text>
+          <text x="781" y="395" text-anchor="middle" class="muted">HBM (H5–H8)</text>
+          <defs>
+            <pattern id="finhatch" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M0 3 H6" stroke="var(--copper)" stroke-width="1.4" opacity=".75"/></pattern>
+            <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" class="flowhead"/></marker>
+          </defs>
+          <!-- flow paths -->
+          <path class="flow dash" marker-end="url(#ah)" d="M140 175 C 200 175, 236 230, 238 292 L 238 306 L 440 306"/>
+          <path class="flow dash" marker-end="url(#ah)" d="M820 175 C 760 175, 722 230, 720 292 L 720 306 L 520 306"/>
+          <path class="flow dash" marker-end="url(#ah)" d="M480 290 L 480 40"/>
+          <!-- labels -->
+          <text x="142" y="140" text-anchor="middle" class="lbl">IN: inlet plenum</text>
+          <text x="818" y="140" text-anchor="middle" class="lbl">IN: inlet plenum</text>
+          <text x="480" y="14" text-anchor="middle" class="lbl">OUT: center port</text>
+          <text x="355" y="258" text-anchor="middle" class="lbl" style="fill:var(--sheet)">gasket</text>
+          <text x="604" y="258" text-anchor="middle" class="lbl" style="fill:var(--sheet)">gasket</text>
+          <text x="140" y="80" class="muted">manifold (fixed)</text>
+          <text x="480" y="349" text-anchor="middle" class="lbl" style="fill:#fff">baseplate</text>
+          <!-- dims -->
+          <g class="dim"><path d="M502.5 214 v-10 M706.2 214 v-10 M502.5 208 H706.2"/></g>
+          <text x="604" y="200" text-anchor="middle" class="dimtxt">13.6 mm under gasket</text>
+          <g class="dim"><path d="M457.5 214 v-6 M502.5 214 v-6"/></g>
+          <text x="480" y="232" text-anchor="middle" class="dimtxt">3 mm slot</text>
+          <g class="dim"><path d="M88.8 296 h-14 M88.8 320 h-14"/></g>
+          <text x="40" y="312" class="dimtxt">fins</text>
+        </svg>
+      </div>
+      <p class="cap">A slice down the middle, along the fin direction (to scale in Z, layers stretched in Y). The water enters at the two outer ends, drops into the fin channels where the gaskets stop, runs inward under the gaskets for about 13.6 mm, meets in the 3 mm center slot, and leaves straight up through the center port. The two halves flow toward each other, so each channel carries half the flow over half the length.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="ht">
+    <h2 id="ht">3 · Top view: fins over the chips</h2>
+    <div class="sheet drawing two">
+      <div class="svgwrap" style="min-width:0">
+        <svg viewBox="0 0 520 520" role="img" aria-label="Top view of the fin region with GPU and HBM chips underneath, gasket strips, and inward flow arrows" style="min-width:300px">
+          <!-- 8 px per mm; centred at 260,260; x horizontal, z vertical -->
+          <rect x="44" y="44" width="432" height="432" class="f-copper" opacity=".25"/>
+          <!-- chips under -->
+          <g opacity=".85">
+            <rect x="51" y="140" width="208" height="240" class="f-chip"/>
+            <rect x="261" y="140" width="208" height="240" class="f-chip"/>
+            <rect x="59" y="59.4" width="96" height="80" class="f-hbm"/><rect x="156" y="59.4" width="96" height="80" class="f-hbm"/>
+            <rect x="268" y="59.4" width="96" height="80" class="f-hbm"/><rect x="365" y="59.4" width="96" height="80" class="f-hbm"/>
+            <rect x="59" y="380.6" width="96" height="80" class="f-hbm"/><rect x="156" y="380.6" width="96" height="80" class="f-hbm"/>
+            <rect x="268" y="380.6" width="96" height="80" class="f-hbm"/><rect x="365" y="380.6" width="96" height="80" class="f-hbm"/>
+          </g>
+          <!-- fins: vertical lines (fins run along z) -->
+          <g id="topfins"></g>
+          <!-- gaskets -->
+          <rect x="43.4" y="140" width="433.3" height="108" class="f-gasket" opacity=".8"/>
+          <rect x="43.4" y="272" width="433.3" height="108" class="f-gasket" opacity=".8"/>
+          <!-- labels -->
+          <text x="155" y="104" text-anchor="middle" class="lbl" style="fill:#fff">H1</text><text x="204" y="104" text-anchor="middle" class="lbl" style="fill:#fff">H2</text>
+          <text x="316" y="104" text-anchor="middle" class="lbl" style="fill:#fff">H3</text><text x="413" y="104" text-anchor="middle" class="lbl" style="fill:#fff">H4</text>
+          <text x="155" y="425" text-anchor="middle" class="lbl" style="fill:#fff">H5</text><text x="204" y="425" text-anchor="middle" class="lbl" style="fill:#fff">H6</text>
+          <text x="316" y="425" text-anchor="middle" class="lbl" style="fill:#fff">H7</text><text x="413" y="425" text-anchor="middle" class="lbl" style="fill:#fff">H8</text>
+          <text x="155" y="198" text-anchor="middle" class="lbl" style="fill:var(--sheet)">GPU1 (under gasket)</text>
+          <text x="365" y="198" text-anchor="middle" class="lbl" style="fill:var(--sheet)">GPU2 (under gasket)</text>
+          <!-- flow arrows -->
+          <g class="flow"><path d="M120 30 V128" marker-end="url(#ah2)"/><path d="M260 30 V128" marker-end="url(#ah2)"/><path d="M400 30 V128" marker-end="url(#ah2)"/>
+            <path d="M120 490 V392" marker-end="url(#ah2)"/><path d="M260 490 V392" marker-end="url(#ah2)"/><path d="M400 490 V392" marker-end="url(#ah2)"/></g>
+          <defs><marker id="ah2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" class="flowhead"/></marker></defs>
+          <text x="260" y="264" text-anchor="middle" class="lbl" style="fill:var(--water)">center slot → OUT</text>
+          <text x="500" y="20" text-anchor="end" class="muted">water in ↓</text>
+          <text x="500" y="514" text-anchor="end" class="muted">water in ↑</text>
+          <!-- dims -->
+          <g class="dim"><path d="M44 500 H476 M44 494 v12 M476 494 v12"/></g>
+          <text x="22" y="514" class="dimtxt">52.15 mm fin region</text>
+        </svg>
+      </div>
+      <div style="display:grid;gap:14px;align-content:start">
+        <p>Looking down through the manifold. The fins run top-to-bottom, the same way the water flows. The dark bands are the two gaskets. Water can only drop into the fins in the strips outside them, over the HBM chips. It then has to squeeze along the channels under the gaskets, over the GPUs, to the center slot.</p>
+        <p>So the memory chips sit right where cold water arrives, and the GPUs sit under the long, gasket-covered part of the path. That matters for design, because the score weights the HBM temperature at 0.7.</p>
+        <dl class="facts">
+          <dt>fins</dt><dd>271 · 0.1 mm thick · 0.1 mm gaps</dd>
+          <dt>fin height</dt><dd>2 mm</dd>
+          <dt>fin length</dt><dd>52.15 mm (along flow)</dd>
+          <dt>channels</dt><dd>270 · 0.1 × 2 mm each</dd>
+          <dt>gasket strips</dt><dd>13.6 mm long, 3 mm slot between</dd>
+          <dt>inlet / outlet</dt><dd>Ø 10.3 mm ports · side in, center out</dd>
+          <dt>flow</dt><dd>2.25 L/min · 45 °C · splits in two</dd>
+          <dt>in a channel</dt><dd>≈ 0.35 m/s · Re ≈ 110 (laminar)</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <footer>Geometry tessellated from the organizers' Assembly.stp (units mm). The brass hose fittings are left out to keep the model light. The water volume is cut off at the top of the two ports. The drawings are schematic, with layers stretched for legibility. All dimensions in the text are taken from the CAD.</footer>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+/* ---------- 2D drawings: fin rows ---------- */
+(function(){
+  const ns="http://www.w3.org/2000/svg", mk=(t,a)=>{const e=document.createElementNS(ns,t);for(const k in a)e.setAttribute(k,a[k]);return e};
+  const row=document.getElementById("finrow"), x0=120, w=660, n=22, pitch=w/n, finw=pitch/2;
+  row.appendChild(mk("rect",{x:x0,y:90,width:w,height:200,class:"f-water"}));
+  for(let i=0;i<n;i++){ row.appendChild(mk("rect",{x:x0+i*pitch+finw/2,y:90,width:finw,height:200,class:"f-copper2"})); }
+  // highlight one channel
+  const cx=x0+10*pitch+finw*1.5;
+  row.appendChild(mk("rect",{x:cx-finw/2,y:90,width:finw,height:200,class:"hl"}));
+  const d=document.getElementById("findims"), fx=x0+10*pitch+finw/2;
+  d.appendChild(mk("path",{d:`M${fx} 290 v12 M${fx+finw} 290 v12 M${fx+2*finw} 290 v12 M${fx} 298 H${fx+2*finw}`,class:"dim"}));
+  const t1=mk("text",{x:fx+finw/2,y:288-4,"text-anchor":"middle",class:"dimtxt"}); t1.textContent="";
+  const lab=mk("text",{x:cx,y:84,"text-anchor":"middle",class:"lbl"}); lab.setAttribute("style","fill:var(--hot)"); lab.textContent="one channel: 0.1 mm wide";
+  // place label above gasket instead to avoid overlap
+  lab.setAttribute("y",30); row.appendChild(lab);
+  row.appendChild(mk("path",{d:`M${cx} 34 V100`,class:"hl"}));
+  const fl=mk("text",{x:fx+finw/2-40,y:120,"text-anchor":"end",class:"lbl"}); fl.setAttribute("style","fill:var(--copper)"); fl.textContent="fin 0.1 mm →";
+  row.appendChild(fl);
+  const tf=document.getElementById("topfins");
+  for(let x=46;x<476;x+=5.4){ tf.appendChild(mk("line",{x1:x,y1:44,x2:x,y2:476,class:"edge"})); }
+})();
+
+/* ---------- shared geometry load ---------- */
+const GEO = (window.THREE ? Promise.all([
+  fetch("parts.json").then(r=>r.json()),
+  fetch("geometry.b64.txt").then(r=>r.text()).then(t=>{const s=atob(t.trim()),u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u.buffer;})
+]) : Promise.reject(new Error("3D library failed to load")));
+function partGeometry(meta,buf,p){
+  const pos=new Float32Array(buf,0,meta.nverts*3), idx=new Uint32Array(buf,meta.nverts*12,meta.nidx);
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute("position",new THREE.BufferAttribute(pos.slice(p.vstart*3,(p.vstart+p.vcount)*3),3));
+  geo.setIndex(new THREE.BufferAttribute(idx.slice(p.istart,p.istart+p.icount),1));
+  const flat=geo.toNonIndexed(); flat.computeVertexNormals(); return flat;
+}
+
+/* ---------- Follow the water ---------- */
+(function(){
+  const stage=document.getElementById("fstage"), status=document.getElementById("fstatus");
+  if(!window.THREE){status.textContent="3D library failed to load.";return;}
+  const css=getComputedStyle(document.documentElement);
+  const STEPS=[
+    {t:"The whole journey",d:"One inlet on the side. The water splits into two branches, drops into the fins over the memory chips, flows inward under the gaskets over the GPUs, meets in the middle, and leaves through one outlet in the center.",cam:[95,85,115],tgt:[-5,14,0]},
+    {t:"1 · Water comes in",d:"Cold water (45 °C, 2.25 L/min) flows down the single inlet pipe on the side of the manifold, off to the left of the chips.",cam:[-95,50,55],tgt:[-34,20,0]},
+    {t:"2 · It splits in two",d:"At the bottom of the inlet pipe the water enters a C-shaped channel inside the manifold. Half turns toward the top edge and half toward the bottom edge. Each half then runs along its edge, all the way to the far end.",cam:[-15,95,25],tgt:[-6,18,0]},
+    {t:"3 · It drops into the fins",d:"All along each edge, the water falls straight down into the fins. This happens over the memory chips (HBM), so they get the coldest water.",cam:[70,28,-70],tgt:[0,13,-20]},
+    {t:"4 · It squeezes through the fins",d:"Under the gaskets, the water is forced sideways through the 0.1 mm gaps between the fins, toward the center. It passes over the GPUs here and picks up their heat (the drops turn orange).",cam:[48,26,-48],tgt:[0,8,-8]},
+    {t:"5 · The two streams meet",d:"The top and bottom streams arrive at the center line from opposite sides, then rise into the narrow 3 mm slot between the two gaskets.",cam:[50,38,42],tgt:[0,12,0]},
+    {t:"6 · It leaves",d:"The warmed water (about 55 °C) collects toward the middle of the slot and leaves straight up through the single outlet pipe in the center.",cam:[40,62,62],tgt:[0,20,0]}
+  ];
+  const renderer=new THREE.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2)); stage.prepend(renderer.domElement);
+  const scene=new THREE.Scene(), cam=new THREE.PerspectiveCamera(35,1,0.05,3000);
+  const controls=new THREE.OrbitControls(cam,renderer.domElement); controls.enableDamping=true;
+  scene.add(new THREE.HemisphereLight(0xffffff,0x445566,.8));
+  const dl=new THREE.DirectionalLight(0xffffff,.7); dl.position.set(80,140,60); scene.add(dl);
+  function bg(){ renderer.setClearColor(new THREE.Color(css.getPropertyValue("--sheet").trim()||"#fff")); }
+  bg(); matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>setTimeout(bg,50));
+  new MutationObserver(()=>setTimeout(bg,50)).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+  function resize(){const r=stage.getBoundingClientRect();renderer.setSize(r.width,r.height,false);cam.aspect=r.width/Math.max(r.height,1);cam.updateProjectionMatrix();}
+  new ResizeObserver(resize).observe(stage); resize();
+
+  const LOOK={COOLANT:{c:"#4aa3ff",o:.10},FIN_PLATE:{c:"#c06a33",o:1},"BOSS-EXTRUDE2":{c:"#3b4249",o:.55},MIRROR1:{c:"#3b4249",o:.55},
+    TIM_V1:{c:"#9a8fb8",o:1},XPU1:{c:"#5d7034",o:1},XPU2:{c:"#5d7034",o:1},MANIFOLD:{c:"#c9d1d6",o:.07}};
+  /* drop paths, assembly coordinates in mm (Y up). Built from slices of the CAD water volume. */
+  const SPEED=[0,40,40,18,6,10,30];   // mm/s per step, slow in the fins so it can be followed
+  function path(s,xt,j){
+    const zb=s*20.5, jj=j*0.8;
+    return [
+      [[-34.6+jj,29.5,jj],[-34.6+jj,19,jj]],                                                     // 1 down inlet pipe
+      [[-34.6,19,jj],[-35.5,19,s*10],[-32,19,s*18.5],[-27,19,zb+jj],[xt,19,zb+jj]],               // 2 C-channel, along branch
+      [[xt,19,zb+jj],[xt,11,zb+jj],[xt,8.6+j*.5,s*15.5]],                                          // 3 drop into fins
+      [[xt,8.6+j*.5,s*15.5],[xt,8.6+j*.5,s*1.4]],                                                  // 4 through fins under gasket
+      [[xt,8.6+j*.5,s*1.4],[xt,13,s*0.5],[xt*0.12,16.5,s*0.3]],                                   // 5 meet, rise in slot, gather
+      [[xt*0.12,16.5,s*0.3],[jj*.5,29.5,jj*.5]]                                                   // 6 up the outlet
+    ];
+  }
+  const N=900, drops=[];
+  for(let i=0;i<N;i++){
+    const s=i%2?1:-1, xt=-25+50*Math.random(), j=Math.random()*2-1;
+    const segs=path(s,xt,j).map((pts,k)=>{
+      const v=pts.map(p=>new THREE.Vector3(...p)); let L=0; const cum=[0];
+      for(let q=1;q<v.length;q++){L+=v[q].distanceTo(v[q-1]);cum.push(L);}
+      return {v,cum,L,step:k+1,T:L/SPEED[k+1]};
+    });
+    const total=segs.reduce((a,g)=>a+g.T,0);
+    drops.push({segs,total,phase:Math.random()*total});
+  }
+  const pts=new Float32Array(N*3), cols=new Float32Array(N*3);
+  const pg=new THREE.BufferGeometry(); pg.setAttribute("position",new THREE.BufferAttribute(pts,3)); pg.setAttribute("color",new THREE.BufferAttribute(cols,3));
+  const pm=new THREE.PointsMaterial({size:0.9,vertexColors:true,sizeAttenuation:true,depthTest:false,transparent:true});
+  const cloud=new THREE.Points(pg,pm); cloud.renderOrder=10; scene.add(cloud);
+  const COLD=new THREE.Color("#1e7bff"), HOT=new THREE.Color("#ff6a13"), DIM=new THREE.Color("#9aa6b2"), tmp=new THREE.Color();
+
+  let step=0, playing=true, clock=0, last=performance.now();
+  const camGoal={p:new THREE.Vector3(),t:new THREE.Vector3()}; let tween=0;
+  const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function setStep(k){
+    step=(k+7)%7;
+    document.querySelectorAll("[data-step]").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.step===step));
+    const S=STEPS[step]; document.getElementById("caption").innerHTML=`<b>${S.t}</b>${S.d}`;
+    camGoal.p.set(...S.cam); camGoal.t.set(...S.tgt); tween=reduce?1:0;
+    if(reduce){cam.position.copy(camGoal.p);controls.target.copy(camGoal.t);}
+  }
+  document.querySelectorAll("[data-step]").forEach(b=>b.addEventListener("click",()=>setStep(+b.dataset.step)));
+  document.getElementById("fprev").addEventListener("click",()=>setStep(step-1));
+  document.getElementById("fnext").addEventListener("click",()=>setStep(step+1));
+  const pb=document.getElementById("fplay");
+  pb.addEventListener("click",()=>{playing=!playing;pb.textContent=playing?"Pause":"Play";pb.setAttribute("aria-pressed",!playing);});
+
+  function place(i,d,tt){
+    let t=(tt+d.phase)%d.total, g=d.segs[0];
+    for(g of d.segs){ if(t<=g.T) break; t-=g.T; }
+    const f=Math.min(1,t/g.T)*g.L; let q=1; while(q<g.cum.length-1&&g.cum[q]<f) q++;
+    const a=g.v[q-1], b=g.v[q], u=(f-g.cum[q-1])/Math.max(1e-6,g.cum[q]-g.cum[q-1]);
+    pts[i*3]=a.x+(b.x-a.x)*u; pts[i*3+1]=a.y+(b.y-a.y)*u; pts[i*3+2]=a.z+(b.z-a.z)*u;
+    const heat=g.step<4?0:g.step>4?1:f/g.L;
+    tmp.copy(COLD).lerp(HOT,heat);
+    if(step&&g.step!==step) tmp.lerp(DIM,.75);
+    cols[i*3]=tmp.r; cols[i*3+1]=tmp.g; cols[i*3+2]=tmp.b;
+  }
+  GEO.then(([meta,buf])=>{
+    meta.parts.forEach(p=>{
+      const L=LOOK[p.name]||(/^HBM/.test(p.name)?{c:"#93a84a",o:1}:null); if(!L) return;
+      const m=new THREE.Mesh(partGeometry(meta,buf,p),new THREE.MeshStandardMaterial({color:L.c,transparent:L.o<1,opacity:L.o,depthWrite:L.o>=1,side:THREE.DoubleSide,roughness:.6,metalness:p.name==="FIN_PLATE"?.3:.05}));
+      m.renderOrder=L.o<1?2:1; scene.add(m);
+    });
+    status.hidden=true;
+  }).catch(e=>{status.textContent="Could not load geometry ("+e.message+")";});
+  setStep(0); cam.position.set(...STEPS[0].cam); controls.target.set(...STEPS[0].tgt);
+  (function loop(now){
+    requestAnimationFrame(loop);
+    const dt=Math.min(.05,(now-last)/1000); last=now;
+    if(playing&&!reduce) clock+=dt;
+    if(tween<1){ tween=Math.min(1,tween+dt*1.2); const e=1-Math.pow(1-tween,3);
+      cam.position.lerp(camGoal.p,e*.25); controls.target.lerp(camGoal.t,e*.25); }
+    for(let i=0;i<N;i++) place(i,drops[i],clock);
+    pg.attributes.position.needsUpdate=true; pg.attributes.color.needsUpdate=true;
+    controls.update(); renderer.render(scene,cam);
+  })(performance.now());
+})();
+
+/* ---------- 3D viewer ---------- */
+(function(){
+  const stage=document.getElementById("stage"), status=document.getElementById("status");
+  if(!window.THREE){status.textContent="3D library failed to load.";return;}
+  const css=getComputedStyle(document.documentElement);
+  const GROUPS=[
+    {id:"manifold",label:"Manifold + flange",match:n=>n==="MANIFOLD"||n==="FLANGE",color:"#c9d1d6",opacity:.22,lift:3},
+    {id:"fittings",label:"Screw",match:n=>/HOSE|STE$|ALLOY/.test(n),color:"#c9a227",opacity:1,lift:3.6},
+    {id:"gaskets",label:"Gaskets",match:n=>n==="BOSS-EXTRUDE2"||n==="MIRROR1",color:"#3b4249",opacity:1,lift:2},
+    {id:"water",label:"Water (coolant volume)",match:n=>n==="COOLANT",color:"#2f8fe0",opacity:.45,lift:1},
+    {id:"finplate",label:"Fin plate + baseplate",match:n=>n==="FIN_PLATE",color:"#c06a33",opacity:1,lift:0},
+    {id:"tim",label:"TIM (0.2 mm)",match:n=>n==="TIM_V1",color:"#9a8fb8",opacity:1,lift:-1},
+    {id:"gpu",label:"GPU chips",match:n=>/^XPU/.test(n),color:"#5d7034",opacity:1,lift:-2},
+    {id:"hbm",label:"HBM chips",match:n=>/^HBM/.test(n),color:"#93a84a",opacity:1,lift:-2},
+    {id:"board",label:"Substrate + PCB",match:n=>/SUBSTRATE|PCB/.test(n),color:"#2e6b4f",opacity:1,lift:-3}
+  ];
+  const renderer=new THREE.WebGLRenderer({antialias:true,logarithmicDepthBuffer:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2)); stage.prepend(renderer.domElement);
+  const scene=new THREE.Scene();
+  const cam=new THREE.PerspectiveCamera(35,1,0.02,3000);
+  const controls=new THREE.OrbitControls(cam,renderer.domElement); controls.enableDamping=true;
+  scene.add(new THREE.HemisphereLight(0xffffff,0x445566,.75));
+  const d1=new THREE.DirectionalLight(0xffffff,.75); d1.position.set(80,140,60); scene.add(d1);
+  const d2=new THREE.DirectionalLight(0xffffff,.35); d2.position.set(-90,40,-80); scene.add(d2);
+  const plane=new THREE.Plane(new THREE.Vector3(0,0,-1),0); renderer.localClippingEnabled=true;
+  function bg(){ renderer.setClearColor(new THREE.Color(css.getPropertyValue("--sheet").trim()||"#fff")); }
+  bg(); matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{setTimeout(bg,50)});
+  new MutationObserver(()=>setTimeout(bg,50)).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+  function resize(){const r=stage.getBoundingClientRect();renderer.setSize(r.width,r.height,false);cam.aspect=r.width/Math.max(r.height,1);cam.updateProjectionMatrix();}
+  new ResizeObserver(resize).observe(stage); resize();
+
+  const meshes={}; GROUPS.forEach(g=>meshes[g.id]=[]);
+  let explode=0, cutMode="off";
+  GEO.then(([meta,buf])=>{
+    meta.parts.forEach(p=>{
+      const g=GROUPS.find(g=>g.match(p.name)); if(!g) return;
+      const flat=partGeometry(meta,buf,p);
+      const mat=new THREE.MeshStandardMaterial({color:g.color,metalness:g.id==="finplate"?.35:.05,roughness:g.id==="finplate"?.45:.7,
+        transparent:g.opacity<1,opacity:g.opacity,side:THREE.DoubleSide,depthWrite:g.opacity>=1,clippingPlanes:[plane],clipShadows:true,
+        polygonOffset:g.id==="water",polygonOffsetFactor:1,polygonOffsetUnits:1});
+      const m=new THREE.Mesh(flat,mat); m.userData.group=g; m.renderOrder=g.opacity<1?2:1; scene.add(m); meshes[g.id].push(m);
+    });
+    buildToggles(); setView("all"); status.hidden=true;
+  }).catch(e=>{status.textContent="Could not load geometry ("+e.message+")";});
+
+  function buildToggles(){
+    const box=document.getElementById("parts");
+    GROUPS.forEach(g=>{ if(!meshes[g.id].length) return;
+      const l=document.createElement("label"); const c=document.createElement("input"); c.type="checkbox"; c.id="p-"+g.id; c.checked=true;
+      c.addEventListener("change",()=>meshes[g.id].forEach(m=>m.visible=c.checked));
+      const s=document.createElement("span"); s.className="sw"; s.style.background=g.color;
+      l.append(c,s,document.createTextNode(g.label)); box.appendChild(l); });
+  }
+  function show(ids){ GROUPS.forEach(g=>{const on=ids.includes(g.id);meshes[g.id].forEach(m=>m.visible=on);const c=document.getElementById("p-"+g.id);if(c)c.checked=on;}); }
+  function applyExplode(){ GROUPS.forEach(g=>meshes[g.id].forEach(m=>m.position.y=g.lift*explode)); }
+  const cutIn=document.getElementById("cut"), cutLbl=document.getElementById("cutlbl");
+  function applyCut(){
+    const v=+cutIn.value;
+    if(cutMode==="off"){ plane.normal.set(0,0,-1); plane.constant=1e6; cutLbl.textContent="no cut"; }
+    else if(cutMode==="z"){ plane.normal.set(-1,0,0); plane.constant=v; cutLbl.textContent=`showing x < ${v.toFixed(1)} mm`; }
+    else { plane.normal.set(0,0,-1); plane.constant=v; cutLbl.textContent=`showing z < ${v.toFixed(1)} mm`; }
+  }
+  function setCut(mode,val){ cutMode=mode; document.querySelectorAll("[data-cut]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.cut===mode)); if(val!==undefined) cutIn.value=val; applyCut(); }
+  document.querySelectorAll("[data-cut]").forEach(b=>b.addEventListener("click",()=>setCut(b.dataset.cut)));
+  cutIn.addEventListener("input",()=>{ if(cutMode==="off") setCut("z"); else applyCut(); });
+  const exIn=document.getElementById("explode"); exIn.addEventListener("input",()=>{explode=+exIn.value;applyExplode();});
+  function camTo(p,t){ cam.position.set(...p); controls.target.set(...t); controls.update(); }
+  function setView(v){
+    document.querySelectorAll("[data-view]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.view===v));
+    const all=GROUPS.map(g=>g.id);
+    explode=0;
+    if(v==="all"){ show(all); setCut("off"); camTo([150,120,170],[0,12,0]); }
+    if(v==="cut"){ show(all.filter(i=>i!=="fittings")); setCut("x",0.4); camTo([95,60,150],[0,10,0]); }
+    if(v==="water"){ show(["water","finplate","gpu","hbm"]); setCut("off"); explode=4; camTo([110,95,130],[0,10,0]); }
+    if(v==="fins"){ show(["water","finplate","gaskets","tim","gpu","hbm","board"]); setCut("x",8.0); camTo([24.6,10.2,12.2],[25.4,8.0,8.0]); }
+    if(v==="stack"){ show(all.filter(i=>i!=="fittings")); setCut("off"); explode=9; camTo([170,90,190],[0,8,0]); }
+    if(v==="chips"){ show(["finplate","tim","gpu","hbm"]); setCut("off"); explode=5; camTo([0,-120,1],[0,5,0]); }
+    exIn.value=explode; applyExplode();
+  }
+  document.querySelectorAll("[data-view]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.view)));
+  (function loop(){ requestAnimationFrame(loop); controls.update(); renderer.render(scene,cam); })();
+})();
+</script>
+
+</html>
