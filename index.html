@@ -389,18 +389,29 @@ footer{color:var(--muted);font-size:13px}
   for(let x=46;x<476;x+=5.4){ tf.appendChild(mk("line",{x1:x,y1:44,x2:x,y2:476,class:"edge"})); }
 })();
 
-/* ---------- email gate: @my.erau.edu or @erau.edu ---------- */
+/* ---------- email gate: @my.erau.edu or @erau.edu, recorded in the course log sheet ---------- */
+const LOGGER_URL="https://script.google.com/macros/s/AKfycbwmh8vX2n26GHHKq9yIGjy3fanmZ_XQddXHSH3RmrtV3HdhrpO27E3zZvXswCfN9QRpXg/exec";
 const UNLOCKED = new Promise(resolve=>{
   const gate=document.getElementById("gate"), form=document.getElementById("gate-form"),
-        input=document.getElementById("gate-email"), msg=document.getElementById("gate-msg");
+        input=document.getElementById("gate-email"), msg=document.getElementById("gate-msg"),
+        btn=form.querySelector("button");
   const open=()=>{gate.hidden=true; resolve();};
   let saved=null; try{saved=localStorage.getItem("cpg-email");}catch(e){}
   if(saved){open(); return;}
-  form.addEventListener("submit",ev=>{
+  form.addEventListener("submit",async ev=>{
     ev.preventDefault();
     const email=input.value.trim().toLowerCase();
     if(!/^[^\s@]+@(my\.)?erau\.edu$/.test(email)){
       input.setAttribute("aria-invalid","true"); msg.textContent="Use your @my.erau.edu or @erau.edu email."; input.focus(); return;
+    }
+    input.removeAttribute("aria-invalid"); msg.textContent=""; btn.disabled=true; btn.textContent="Recording…";
+    try{
+      const body=new URLSearchParams({action:"download",studentName:"",email:email,activity:"Cold Plate Geometry Viewer",scenario:"",displacement:"",distance:"",notes:"Opened the 3D geometry viewer"});
+      const r=await fetch(LOGGER_URL,{method:"POST",mode:"cors",credentials:"omit",redirect:"follow",headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8"},body:body});
+      if(!r.ok) throw new Error("HTTP "+r.status);
+    }catch(e){
+      msg.textContent="Your email could not be recorded. Check your connection and try again.";
+      btn.disabled=false; btn.textContent="Open the viewer"; return;
     }
     try{localStorage.setItem("cpg-email",email);}catch(e){}
     open();
