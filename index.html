@@ -99,6 +99,16 @@ footer{color:var(--muted);font-size:13px}
 .caption{font-size:15px;line-height:1.5;min-height:9.5em;padding:12px 14px;border-radius:6px;background:var(--water-soft)}
 .caption b{display:block;font-family:var(--display);font-size:17px;margin-bottom:4px}
 .flowv .stage{height:66vh}
+#gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px}
+#gate[hidden]{display:none}
+#gate form{background:var(--sheet);border:1px solid var(--line);border-radius:10px;padding:28px 24px;max-width:420px;width:100%}
+#gate h2{font-size:22px;margin-bottom:8px}
+#gate p{color:var(--muted);margin:0 0 16px}
+#gate label{display:block;font-weight:600;margin-bottom:6px}
+#gate input{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+#gate input[aria-invalid="true"]{border-color:var(--hot)}
+#gate button{margin-top:14px;width:100%;font:600 16px var(--body);padding:10px;border:0;border-radius:6px;background:var(--copper);color:#fff;cursor:pointer}
+#gate-msg{min-height:1.4em;margin-top:10px;color:var(--hot);font-size:14px}
 </style>
 
 <main>
@@ -343,6 +353,17 @@ footer{color:var(--muted);font-size:13px}
   <footer>Geometry tessellated from the organizers' Assembly.stp (units mm). The brass hose fittings are left out to keep the model light. The water volume is cut off at the top of the two ports. The drawings are schematic, with layers stretched for legibility. All dimensions in the text are taken from the CAD.</footer>
 </main>
 
+<div id="gate">
+  <form id="gate-form" novalidate>
+    <h2>Cold Plate Geometry</h2>
+    <p>Enter your Embry-Riddle email to open the viewer.</p>
+    <label for="gate-email">ERAU email</label>
+    <input id="gate-email" type="email" autocomplete="email" placeholder="name@my.erau.edu" required>
+    <button type="submit">Open the viewer</button>
+    <div id="gate-msg" role="alert"></div>
+  </form>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
@@ -368,11 +389,29 @@ footer{color:var(--muted);font-size:13px}
   for(let x=46;x<476;x+=5.4){ tf.appendChild(mk("line",{x1:x,y1:44,x2:x,y2:476,class:"edge"})); }
 })();
 
+/* ---------- email gate: @my.erau.edu or @erau.edu ---------- */
+const UNLOCKED = new Promise(resolve=>{
+  const gate=document.getElementById("gate"), form=document.getElementById("gate-form"),
+        input=document.getElementById("gate-email"), msg=document.getElementById("gate-msg");
+  const open=()=>{gate.hidden=true; resolve();};
+  let saved=null; try{saved=localStorage.getItem("cpg-email");}catch(e){}
+  if(saved){open(); return;}
+  form.addEventListener("submit",ev=>{
+    ev.preventDefault();
+    const email=input.value.trim().toLowerCase();
+    if(!/^[^\s@]+@(my\.)?erau\.edu$/.test(email)){
+      input.setAttribute("aria-invalid","true"); msg.textContent="Use your @my.erau.edu or @erau.edu email."; input.focus(); return;
+    }
+    try{localStorage.setItem("cpg-email",email);}catch(e){}
+    open();
+  });
+});
+
 /* ---------- shared geometry load ---------- */
-const GEO = (window.THREE ? Promise.all([
+const GEO = (window.THREE ? UNLOCKED.then(()=>Promise.all([
   fetch("parts.json").then(r=>r.json()),
   fetch("geometry.b64.txt").then(r=>r.text()).then(t=>{const s=atob(t.trim()),u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u.buffer;})
-]) : Promise.reject(new Error("3D library failed to load")));
+])) : Promise.reject(new Error("3D library failed to load")));
 function partGeometry(meta,buf,p){
   const pos=new Float32Array(buf,0,meta.nverts*3), idx=new Uint32Array(buf,meta.nverts*12,meta.nidx);
   const geo=new THREE.BufferGeometry();
