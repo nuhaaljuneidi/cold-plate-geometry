@@ -8,3 +8,22 @@ Files:
 - `index.html`: the page
 - `parts.json`: part names and colors
 - `geometry.b64.txt`: the mesh data (base64)
+
+## Viewer controls
+
+- Rotate with drag, zoom with the mouse wheel or trackpad, and pan with right-drag.
+- Use the view presets to isolate the water path, fins, chip stack, or a section cut.
+- **Reset current view** restores the active preset after manual rotation or zooming.
+- **Save view as PNG** downloads the current 3D assembly view for notes or reports.
+- The light/dark appearance switch is remembered on the current device.
+
+## Accessibility and resilience
+
+- A keyboard skip link moves directly to the 3D assembly section.
+- Loading and geometry errors are announced through live status regions.
+- The interface follows the operating-system color preference until a visitor chooses a theme.
+- Animated water flow respects the browser's reduced-motion preference.
+
+## Troubleshooting
+
+If the model does not appear, confirm that the page is being served over HTTP rather than opened as a local `file://` URL. The viewer also needs access to the pinned Three.js CDN resources and the two geometry data files in this repository.
