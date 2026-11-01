@@ -95,6 +95,14 @@ svg .outl{fill:none;stroke:var(--fg);stroke-opacity:.5;stroke-width:1}
 svg .hl{fill:none;stroke:var(--hot);stroke-width:2}
 @media (prefers-reduced-motion:no-preference){ svg .dash{stroke-dasharray:6 6;animation:run 1.2s linear infinite} @keyframes run{to{stroke-dashoffset:-12}} }
 footer{color:var(--muted);font-size:13px}
+.skip-link{position:fixed;left:16px;top:12px;z-index:100;transform:translateY(-160%);background:var(--sheet);color:var(--fg);border:2px solid var(--water);border-radius:4px;padding:8px 12px;font-weight:700}
+.skip-link:focus{transform:translateY(0)}
+.header-row{display:flex;align-items:start;justify-content:space-between;gap:20px}
+.header-copy{display:grid;gap:10px}
+.theme-toggle{white-space:nowrap;text-align:center;padding:9px 12px}
+.utilities{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.utilities button{text-align:center}
+@media (max-width:600px){.header-row{display:grid}.theme-toggle{justify-self:start}.utilities{grid-template-columns:1fr}}
 .byline{margin:-4px 0 12px;color:var(--muted);font-size:16px;font-weight:600}
 .byname{color:var(--fg);font-family:var(--display);font-size:24px;font-weight:700;margin-left:4px}
 .steps{display:grid;gap:6px}
@@ -113,12 +121,19 @@ footer{color:var(--muted);font-size:13px}
 #gate-msg{min-height:1.4em;margin-top:10px;color:var(--hot);font-size:14px}
 </style>
 
+<body>
+<a class="skip-link" href="#h3d">Skip to the 3D assembly</a>
 <main>
   <header>
-    <div class="eyebrow">ASME K-16 / ITherm 2026–27 · Assembly.stp</div>
-    <h1>Cold Plate Geometry</h1>
-    <div class="byline">Tool developed by <span class="byname">Dr. Nuha Aljuneidi</span></div>
-    <p>This is the test assembly from the competition files, shown as built. Rotate the 3D model, then use the drawings below. They show where the water goes and what "between the fins" means.</p>
+    <div class="header-row">
+      <div class="header-copy">
+        <div class="eyebrow">ASME K-16 / ITherm 2026–27 · Assembly.stp</div>
+        <h1>Cold Plate Geometry</h1>
+        <div class="byline">Tool developed by <span class="byname">Dr. Nuha Aljuneidi</span></div>
+        <p>This is the test assembly from the competition files, shown as built. Rotate the 3D model, then use the drawings below. They show where the water goes and what "between the fins" means.</p>
+      </div>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false">Dark mode</button>
+    </div>
   </header>
 
   <section aria-labelledby="hflow">
@@ -126,7 +141,7 @@ footer{color:var(--muted);font-size:13px}
     <p>Each dot is a drop of water. Step through the journey, or press <b>All steps</b> to watch the whole loop. The drops are <span style="color:var(--water);font-weight:600">blue</span> while cold. They turn <span style="color:var(--hot);font-weight:600">orange</span> as they pick up heat from the chips.</p>
     <div class="sheet viewer flowv">
       <div class="stage" id="fstage">
-        <div class="status" id="fstatus">Loading geometry…</div>
+        <div class="status" id="fstatus" role="status" aria-live="polite">Loading geometry…</div>
         <div class="hint">drag to rotate · scroll to zoom</div>
       </div>
       <div class="panel">
@@ -156,7 +171,7 @@ footer{color:var(--muted);font-size:13px}
     <h2 id="h3d">The assembly in 3D</h2>
     <div class="sheet viewer">
       <div class="stage" id="stage">
-        <div class="status" id="status">Loading geometry…</div>
+        <div class="status" id="status" role="status" aria-live="polite">Loading geometry…</div>
         <div class="hint">drag to rotate · scroll to zoom · right-drag to pan</div>
         <div class="axes">Y = up (stack direction)</div>
       </div>
@@ -170,6 +185,10 @@ footer{color:var(--muted);font-size:13px}
             <button id="v-fins" data-view="fins">Fin close-up</button>
             <button id="v-stack" data-view="stack">Exploded stack</button>
             <button id="v-chips" data-view="chips">Chips + fins</button>
+          </div>
+          <div class="utilities" aria-label="Viewer utilities">
+            <button id="reset-view" type="button">Reset current view</button>
+            <button id="save-view" type="button">Save view as PNG</button>
           </div>
         </div>
         <div style="display:grid;gap:8px">
@@ -370,6 +389,17 @@ footer{color:var(--muted);font-size:13px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
+/* ---------- page preferences ---------- */
+(function(){
+  const root=document.documentElement, button=document.getElementById("theme-toggle");
+  let saved=""; try{saved=localStorage.getItem("cpg-theme")||"";}catch(e){}
+  if(saved==="light"||saved==="dark") root.dataset.theme=saved;
+  function isDark(){return root.dataset.theme?root.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches;}
+  function sync(){const dark=isDark();button.textContent=dark?"Light mode":"Dark mode";button.setAttribute("aria-pressed",String(dark));}
+  button.addEventListener("click",()=>{root.dataset.theme=isDark()?"light":"dark";try{localStorage.setItem("cpg-theme",root.dataset.theme);}catch(e){}sync();});
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change",sync); sync();
+})();
+
 /* ---------- 2D drawings: fin rows ---------- */
 (function(){
   const ns="http://www.w3.org/2000/svg", mk=(t,a)=>{const e=document.createElementNS(ns,t);for(const k in a)e.setAttribute(k,a[k]);return e};
@@ -572,7 +602,7 @@ function partGeometry(meta,buf,p){
   new ResizeObserver(resize).observe(stage); resize();
 
   const meshes={}; GROUPS.forEach(g=>meshes[g.id]=[]);
-  let explode=0, cutMode="off";
+  let explode=0, cutMode="off", currentView="all";
   GEO.then(([meta,buf])=>{
     meta.parts.forEach(p=>{
       const g=GROUPS.find(g=>g.match(p.name)); if(!g) return;
@@ -608,6 +638,7 @@ function partGeometry(meta,buf,p){
   const exIn=document.getElementById("explode"); exIn.addEventListener("input",()=>{explode=+exIn.value;applyExplode();});
   function camTo(p,t){ cam.position.set(...p); controls.target.set(...t); controls.update(); }
   function setView(v){
+    currentView=v;
     document.querySelectorAll("[data-view]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.view===v));
     const all=GROUPS.map(g=>g.id);
     explode=0;
@@ -620,8 +651,19 @@ function partGeometry(meta,buf,p){
     exIn.value=explode; applyExplode();
   }
   document.querySelectorAll("[data-view]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.view)));
+  document.getElementById("reset-view").addEventListener("click",()=>setView(currentView));
+  document.getElementById("save-view").addEventListener("click",()=>{
+    renderer.render(scene,cam);
+    renderer.domElement.toBlob(blob=>{
+      if(!blob){status.hidden=false;status.textContent="The image could not be created.";return;}
+      const url=URL.createObjectURL(blob), link=document.createElement("a");
+      link.href=url;link.download="cold-plate-geometry.png";link.click();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    },"image/png");
+  });
   (function loop(){ requestAnimationFrame(loop); controls.update(); renderer.render(scene,cam); })();
 })();
 </script>
 
+</body>
 </html>
