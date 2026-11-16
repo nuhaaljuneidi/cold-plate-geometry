@@ -116,8 +116,10 @@ footer{color:var(--muted);font-size:13px}
 .header-row{display:flex;align-items:start;justify-content:space-between;gap:20px}
 .header-copy{display:grid;gap:10px}
 .theme-toggle{white-space:nowrap;text-align:center;padding:9px 12px}
-.utilities{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.utilities{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .utilities button{text-align:center}
+.view-note{min-height:4.5em;padding:10px 12px;border:1px solid var(--line);border-radius:4px;color:var(--muted);font-size:13px;line-height:1.45}
+.view-note strong{color:var(--fg)}
 @media (max-width:600px){.header-row{display:grid}.theme-toggle{justify-self:start}.utilities{grid-template-columns:1fr}}
 .byline{margin:-4px 0 12px;color:var(--muted);font-size:16px;font-weight:600}
 .byname{color:var(--fg);font-family:var(--display);font-size:24px;font-weight:700;margin-left:4px}
@@ -205,7 +207,9 @@ footer{color:var(--muted);font-size:13px}
           <div class="utilities" aria-label="Viewer utilities">
             <button id="reset-view" type="button">Reset current view</button>
             <button id="save-view" type="button">Save view as PNG</button>
+            <button id="copy-view" type="button">Copy view link</button>
           </div>
+          <p class="view-note" id="view-note" aria-live="polite"></p>
         </div>
         <div style="display:grid;gap:8px">
           <h3>Parts</h3>
@@ -617,6 +621,14 @@ function partGeometry(meta,buf,p){
   function resize(){const r=stage.getBoundingClientRect();renderer.setSize(r.width,r.height,false);cam.aspect=r.width/Math.max(r.height,1);cam.updateProjectionMatrix();}
   new ResizeObserver(resize).observe(stage); resize();
 
+  const VIEW_INFO={
+    all:{label:"Whole assembly",note:"See how the manifold, coolant volume, fin plate, interface layers, and chips stack into one assembly."},
+    cut:{label:"Cut in half",note:"Look through the section plane to connect the internal water volume with the surrounding solid parts."},
+    water:{label:"Water only",note:"Trace the coolant from the side inlet, through both branches and the fin field, to the center outlet."},
+    fins:{label:"Fin close-up",note:"Inspect the narrow channels between neighboring copper fins where the coolant removes heat."},
+    stack:{label:"Exploded stack",note:"Follow the heat path upward: chips, TIM, copper baseplate and fins, gasket, then manifold."},
+    chips:{label:"Chips + fins",note:"Compare GPU and HBM locations with the copper surface that receives their heat."}
+  };
   const meshes={}; GROUPS.forEach(g=>meshes[g.id]=[]);
   let explode=0, cutMode="off", currentView="all";
   GEO.then(([meta,buf])=>{
@@ -628,7 +640,8 @@ function partGeometry(meta,buf,p){
         polygonOffset:g.id==="water",polygonOffsetFactor:1,polygonOffsetUnits:1});
       const m=new THREE.Mesh(flat,mat); m.userData.group=g; m.renderOrder=g.opacity<1?2:1; scene.add(m); meshes[g.id].push(m);
     });
-    buildToggles(); setView("all"); status.hidden=true;
+    const requested=new URL(location.href).searchParams.get("view");
+    buildToggles(); setView(VIEW_INFO[requested]?requested:"all"); status.hidden=true;
   }).catch(e=>{status.textContent="Could not load geometry ("+e.message+")";});
 
   function buildToggles(){
@@ -654,6 +667,7 @@ function partGeometry(meta,buf,p){
   const exIn=document.getElementById("explode"); exIn.addEventListener("input",()=>{explode=+exIn.value;applyExplode();});
   function camTo(p,t){ cam.position.set(...p); controls.target.set(...t); controls.update(); }
   function setView(v){
+    if(!VIEW_INFO[v]) v="all";
     currentView=v;
     document.querySelectorAll("[data-view]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.view===v));
     const all=GROUPS.map(g=>g.id);
@@ -665,6 +679,9 @@ function partGeometry(meta,buf,p){
     if(v==="stack"){ show(all.filter(i=>i!=="fittings")); setCut("off"); explode=9; camTo([170,90,190],[0,8,0]); }
     if(v==="chips"){ show(["finplate","tim","gpu","hbm"]); setCut("off"); explode=5; camTo([0,-120,1],[0,5,0]); }
     exIn.value=explode; applyExplode();
+    const info=VIEW_INFO[v];
+    document.getElementById("view-note").innerHTML=`<strong>${info.label}</strong><br>${info.note}`;
+    const url=new URL(location.href);url.searchParams.set("view",v);history.replaceState(null,"",url);
   }
   document.querySelectorAll("[data-view]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.view)));
   document.getElementById("reset-view").addEventListener("click",()=>setView(currentView));
@@ -676,6 +693,25 @@ function partGeometry(meta,buf,p){
       link.href=url;link.download="cold-plate-geometry.png";link.click();
       setTimeout(()=>URL.revokeObjectURL(url),1000);
     },"image/png");
+  });
+  document.getElementById("copy-view").addEventListener("click",async()=>{
+    const button=document.getElementById("copy-view"), note=document.getElementById("view-note"), info=VIEW_INFO[currentView];
+    try{
+      if(navigator.clipboard&&window.isSecureContext) await navigator.clipboard.writeText(location.href);
+      else{
+        const input=document.createElement("input");input.value=location.href;input.style.position="fixed";input.style.opacity="0";
+        document.body.appendChild(input);input.select();const copied=document.execCommand("copy");input.remove();
+        if(!copied) throw new Error("Copy command was rejected");
+      }
+      button.textContent="Link copied";note.textContent=`Link copied for the ${info.label.toLowerCase()} view.`;
+      setTimeout(()=>{button.textContent="Copy view link";note.innerHTML=`<strong>${info.label}</strong><br>${info.note}`;},1800);
+    }catch(e){note.textContent="The link could not be copied. Copy it from the browser address bar.";}
+  });
+  document.addEventListener("keydown",event=>{
+    if(!document.getElementById("gate").hidden||event.altKey||event.ctrlKey||event.metaKey) return;
+    if(/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
+    const views=["all","cut","water","fins","stack","chips"], index=Number(event.key)-1;
+    if(index>=0&&index<views.length){event.preventDefault();setView(views[index]);}
   });
   (function loop(){ requestAnimationFrame(loop); controls.update(); renderer.render(scene,cam); })();
 })();
