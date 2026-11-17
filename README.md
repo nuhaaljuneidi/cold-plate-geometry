@@ -39,3 +39,5 @@ Run the dependency-free smoke tests with Node.js:
 ```bash
 node --test tests/viewer-smoke.test.js
 ```
+
+GitHub Actions runs the same checks automatically on every push to `main` and on every pull request. The suite validates script syntax, preset controls, unique HTML IDs, required assets, part-index ranges, and the binary geometry payload size.
